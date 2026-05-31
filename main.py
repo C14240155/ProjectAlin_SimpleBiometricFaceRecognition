@@ -150,7 +150,7 @@ if __name__ == "__main__":
         )
         print(f"[INFO] Training Selesai. Ruang Vektor dipangkas menjadi {eigenfaces.shape[0]} Basis Utama.")
 
-        foto_uji = "foto3.jpeg"  # Sesuaikan dengan nama file Anda
+        foto_uji = "sampleRonai.jpeg"  # Sesuaikan dengan nama file Anda
 
         if os.path.exists(foto_uji):
             print(f"\n[INFO] Memproses foto uji '{foto_uji}'...")
