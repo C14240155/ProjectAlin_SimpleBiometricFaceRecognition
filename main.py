@@ -76,7 +76,6 @@ def recognize_face(test_face, mean_face, eigenfaces, weights):
     # Mencocokkan wajah baru berdasarkan Jarak Euclidean di sub-ruang dimensi rendah.
     test_centered = test_face - mean_face
     
-    # Memproyeksikan wajah uji ke Basis yang baru saja dibuat
     test_weight = np.dot(test_centered, eigenfaces.T)
 
     distances = np.linalg.norm(weights - test_weight, axis=1)
@@ -107,7 +106,7 @@ if __name__ == "__main__":
         )
         print(f"Training Selesai. Ruang Vektor dipangkas menjadi {eigenfaces.shape[0]} Basis Utama.")
 
-        foto_uji = "sampleWilli.jpeg"
+        foto_uji = "sampleRonai.jpeg"
 
         if os.path.exists(foto_uji):
             print(f"\nMemproses foto uji '{foto_uji}'...")
