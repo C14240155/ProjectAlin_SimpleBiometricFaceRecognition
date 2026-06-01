@@ -1,3 +1,4 @@
+#Simple Biometric Face Recognition berbasis PCA dengan pendekatan Aljabar Linier khususnya materi Euclidean Vector Space, Row Space, Column Space, Eigenvalue, Eigenvector.
 import os
 import cv2
 import numpy as np
@@ -34,30 +35,15 @@ def load_custom_faces(folder_path, height=32, width=32):
             cropped_face = detect_and_crop_face(img_path)
 
             if cropped_face is not None:
-                # ---------------------------------------------------------
-                # [KONSEP: DIMENSI (RUANG ASLI)]
-                # Menetapkan bahwa setiap ruang vektor akan memiliki jumlah dimensi tetap.
-                # Jika H=64 dan W=64, maka dimensinya adalah 64 x 64 = 4096.
-                # ---------------------------------------------------------
+
                 img_resized = cv2.resize(cropped_face, (width, height))
 
-                # ---------------------------------------------------------
-                # [KONSEP: EUCLIDEAN VECTOR SPACE]
-                # .flatten() mengubah matriks 2D menjadi vektor 1D.
-                # Titik inilah yang secara resmi memindahkan gambar dari dunia visual 
-                # menjadi sebuah "titik koordinat" di dalam Ruang Vektor Euclidean dimensi tinggi.
-                # ---------------------------------------------------------
                 img_flattened = img_resized.flatten()
 
                 images.append(img_flattened)
                 valid_filenames.append(filename)
                 print(f"   [✅ Sukses] Wajah diekstrak dari: {filename}")
 
-    # ---------------------------------------------------------
-    # [KONSEP: ROW SPACE]
-    # np.array() menggabungkan semua vektor menjadi Matriks X (M x N).
-    # Setiap BARIS (Row) di dalam matriks ini adalah 1 gambar wajah utuh.
-    # ---------------------------------------------------------
     return np.array(images, dtype=np.float64), valid_filenames
 
 
@@ -66,43 +52,21 @@ def train_eigenfaces(X, num_components=5):
     mean_face = np.mean(X, axis=0)
     X_centered = X - mean_face
 
-    # ---------------------------------------------------------
-    # [KONSEP: HUBUNGAN ROW SPACE & COLUMN SPACE]
-    # Kita tidak mencari kovarian dari N x N (piksel x piksel) karena ukurannya raksasa.
-    # Kita gunakan trik (X * X^T) untuk mencari matriks berukuran M x M (jumlah gambar).
-    # Ini memanfaatkan teorema bahwa eigen-value dari Row Space dan Column Space itu saling terhubung.
-    # ---------------------------------------------------------
     L = np.dot(X_centered, X_centered.T)
 
     eigenvalues, eigenvectors_L = np.linalg.eigh(L)
     idx = np.argsort(eigenvalues)[::-1]
     eigenvectors_L = eigenvectors_L[:, idx]
 
-    # ---------------------------------------------------------
-    # [KONSEP: COLUMN SPACE]
-    # Mengembalikan vektor eigen (dari ruang M x M tadi) KEMBALI ke Column Space ruang aslinya (N dimensi).
-    # Hasil perkalian ini menciptakan wajah hantu / Eigenfaces.
-    # ---------------------------------------------------------
     eigenfaces = np.dot(X_centered.T, eigenvectors_L).T
 
-    # ---------------------------------------------------------
-    # [KONSEP: BASIS (ORTHONORMAL BASIS)]
-    # Loop ini membagi vektor dengan panjang aslinya (norm) agar panjangnya menjadi tepat 1.
-    # Tujuannya menciptakan Orthonormal Basis (vektor tegak lurus penyusun ruang baru bernama Face Space).
-    # ---------------------------------------------------------
     for i in range(eigenfaces.shape[0]):
         norm = np.linalg.norm(eigenfaces[i])
         if norm > 0:
             eigenfaces[i] /= norm
 
-    # ---------------------------------------------------------
-    # [KONSEP: REDUKSI DIMENSI]
-    # Memangkas / membuang basis yang tidak penting.
-    # Kita turun dari dimensi R^4096 (jumlah piksel asli) menjadi sub-ruang R^10 saja.
-    # ---------------------------------------------------------
     eigenfaces = eigenfaces[:num_components]
 
-    # Mengalikan wajah asli dengan Basis untuk mencari posisinya (koordinat bobot) di ruang yang baru.
     weights = np.dot(X_centered, eigenfaces.T)
 
     return mean_face, eigenfaces, weights
@@ -115,11 +79,6 @@ def recognize_face(test_face, mean_face, eigenfaces, weights):
     # Memproyeksikan wajah uji ke Basis yang baru saja dibuat
     test_weight = np.dot(test_centered, eigenfaces.T)
 
-    # ---------------------------------------------------------
-    # [KONSEP: EUCLIDEAN METRIC / DISTANCE]
-    # np.linalg.norm mengukur 'jarak lurus' antara titik koordinat wajah database 
-    # dan titik koordinat wajah uji di dalam sub-ruang Euclidean.
-    # ---------------------------------------------------------
     distances = np.linalg.norm(weights - test_weight, axis=1)
 
     best_match_idx = np.argmin(distances)
@@ -128,7 +87,7 @@ def recognize_face(test_face, mean_face, eigenfaces, weights):
     return best_match_idx, min_distance
 
 if __name__ == "__main__":
-    print("=== Simple Biometric Face Recognition ===")
+    print("=== Simple Biometric Face Recognition berbasis PCA dengan pendekatan Aljabar Linier ===")
 
     H, W = 64, 64
     folder_dataset = "dataset_wajah"
