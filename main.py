@@ -1,4 +1,4 @@
-#Simple Biometric Face Recognition berbasis PCA dengan pendekatan Aljabar Linier khususnya materi Euclidean Vector Space, Row Space, Column Space, Eigenvalue, Eigenvector.
+# Simple Biometric Face Recognition berbasis PCA dengan pendekatan Aljabar Linier khususnya materi Euclidean Vector Space, Row Space, Column Space, Eigenvalue, Eigenvector.
 import os
 import cv2
 import numpy as np
@@ -12,7 +12,7 @@ def detect_and_crop_face(image_path):
 
     faces = face_cascade.detectMultiScale(img, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
     if len(faces) == 0:
-        print(f"   [⚠️ Skip] Tidak mendeteksi wajah pada: {os.path.basename(image_path)}")
+        print(f"Tidak mendeteksi wajah pada: {os.path.basename(image_path)}")
         return None
 
     (x, y, w, h) = faces[0]
@@ -21,14 +21,14 @@ def detect_and_crop_face(image_path):
 
 
 def load_custom_faces(folder_path, height=32, width=32):
-    #Membaca foto asli dari folder dan mengubahnya menjadi vektor matematika.
+    # Membaca foto asli dari folder dan mengubahnya menjadi vektor matematika.
     images = []
     valid_filenames = [] 
 
     if not os.path.exists(folder_path):
         return None, None
 
-    print("\n[INFO] Memproses gambar di dataset dengan Haar Cascade...")
+    print("\nMemproses gambar di dataset dengan Haar Cascade...")
     for filename in sorted(os.listdir(folder_path)):
         if filename.lower().endswith((".png", ".jpg", ".jpeg")):
             img_path = os.path.join(folder_path, filename)
@@ -48,7 +48,7 @@ def load_custom_faces(folder_path, height=32, width=32):
 
 
 def train_eigenfaces(X, num_components=5):
-    #Proses pelatihan Eigenface menggunakan manipulasi Ruang Matriks dan Basis.
+    # Proses pelatihan Eigenface menggunakan manipulasi Ruang Matriks dan Basis.
     mean_face = np.mean(X, axis=0)
     X_centered = X - mean_face
 
@@ -73,7 +73,7 @@ def train_eigenfaces(X, num_components=5):
 
 
 def recognize_face(test_face, mean_face, eigenfaces, weights):
-    #Mencocokkan wajah baru berdasarkan Jarak Euclidean di sub-ruang dimensi rendah.
+    # Mencocokkan wajah baru berdasarkan Jarak Euclidean di sub-ruang dimensi rendah.
     test_centered = test_face - mean_face
     
     # Memproyeksikan wajah uji ke Basis yang baru saja dibuat
@@ -95,7 +95,7 @@ if __name__ == "__main__":
     X_train, valid_filenames = load_custom_faces(folder_dataset, height=H, width=W)
 
     if X_train is not None and len(X_train) > 0:
-        print(f"\n[INFO] Dataset berhasil dimuat!")
+        print(f"\nDataset berhasil dimuat!")
         print(f"Jumlah foto valid (M): {X_train.shape[0]} | Dimensi Vektor Piksel (N): {X_train.shape[1]}")
 
         k_dimensions = 10
@@ -105,12 +105,12 @@ if __name__ == "__main__":
         mean_face, eigenfaces, train_weights = train_eigenfaces(
             X_train, num_components=k_dimensions
         )
-        print(f"[INFO] Training Selesai. Ruang Vektor dipangkas menjadi {eigenfaces.shape[0]} Basis Utama.")
+        print(f"Training Selesai. Ruang Vektor dipangkas menjadi {eigenfaces.shape[0]} Basis Utama.")
 
-        foto_uji = "sampleRonai.jpeg"
+        foto_uji = "sampleWilli.jpeg"
 
         if os.path.exists(foto_uji):
-            print(f"\n[INFO] Memproses foto uji '{foto_uji}'...")
+            print(f"\nMemproses foto uji '{foto_uji}'...")
             
             cropped_test = detect_and_crop_face(foto_uji)
 
