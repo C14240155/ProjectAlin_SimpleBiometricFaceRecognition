@@ -106,7 +106,7 @@ if __name__ == "__main__":
         )
         print(f"Training Selesai. Ruang Vektor dipangkas menjadi {eigenfaces.shape[0]} Basis Utama.")
 
-        foto_uji = "sampleRonai.jpeg"
+        foto_uji = "sampleBen2.jpeg"
 
         if os.path.exists(foto_uji):
             print(f"\nMemproses foto uji '{foto_uji}'...")
