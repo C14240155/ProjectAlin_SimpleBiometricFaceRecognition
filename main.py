@@ -1,4 +1,4 @@
-# Simple Biometric Face Recognition berbasis PCA dengan pendekatan Aljabar Linier khususnya materi Euclidean Vector Space, Row Space, Column Space, Eigenvalue, Eigenvector.
+# Simple Biometric Face Recognition berbasis PCA dengan pendekatan Aljabar Linier
 import os
 import cv2
 import numpy as np
@@ -6,21 +6,33 @@ import numpy as np
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
 def detect_and_crop_face(image_path):
-    #Mendeteksi wajah dalam gambar dan memotongnya (Crop).
     img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
     if img is None: return None
 
-    faces = face_cascade.detectMultiScale(img, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+    img = cv2.equalizeHist(img)
+
+    # Kembalikan parameter ke angka yang agak aman agar tidak terlalu banyak "sampah"
+    faces = face_cascade.detectMultiScale(img, scaleFactor=1.1, minNeighbors=4, minSize=(40, 40))
+    
     if len(faces) == 0:
-        print(f"Tidak mendeteksi wajah pada: {os.path.basename(image_path)}")
         return None
 
+    # [PERBAIKAN KUNCI]: Urutkan hasil deteksi berdasarkan Area (Lebar x Tinggi) dari yang terbesar ke terkecil
+    faces = sorted(faces, key=lambda f: f[2] * f[3], reverse=True)
+    
+    # Selalu ambil wajah yang paling besar (indeks 0 setelah diurutkan)
     (x, y, w, h) = faces[0]
-    cropped_face = img[y:y+h, x:x+w]
+    
+    margin = int(w * 0.1)
+    y_start = max(0, y + margin)
+    y_end = min(img.shape[0], y + h - margin)
+    x_start = max(0, x + margin)
+    x_end = min(img.shape[1], x + w - margin)
+    
+    cropped_face = img[y_start:y_end, x_start:x_end]
     return cropped_face
 
-
-def load_custom_faces(folder_path, height=32, width=32):
+def load_custom_faces(folder_path, height=64, width=64):
     # Membaca foto asli dari folder dan mengubahnya menjadi vektor matematika.
     images = []
     valid_filenames = [] 
@@ -34,54 +46,69 @@ def load_custom_faces(folder_path, height=32, width=32):
             img_path = os.path.join(folder_path, filename)
             cropped_face = detect_and_crop_face(img_path)
 
-            if cropped_face is not None:
-
+            if cropped_face is not None and cropped_face.size > 0:
                 img_resized = cv2.resize(cropped_face, (width, height))
-
-                img_flattened = img_resized.flatten()
-
+                # Standarisasi nilai vektor dari 0-255 menjadi 0-1 agar kalkulasi matriks lebih stabil
+                img_flattened = img_resized.flatten() / 255.0 
+                
                 images.append(img_flattened)
                 valid_filenames.append(filename)
                 print(f"   [✅ Sukses] Wajah diekstrak dari: {filename}")
+            else:
+                print(f"   [❌ Gagal] Wajah tidak layak/tidak terdeteksi di: {filename}")
 
     return np.array(images, dtype=np.float64), valid_filenames
 
-
-def train_eigenfaces(X, num_components=5):
+def train_eigenfaces(X, variance_target=0.95):
     # Proses pelatihan Eigenface menggunakan manipulasi Ruang Matriks dan Basis.
     mean_face = np.mean(X, axis=0)
     X_centered = X - mean_face
 
+    # Turk-Pentland trick: L = A * A^T (Ukuran M x M)
     L = np.dot(X_centered, X_centered.T)
 
     eigenvalues, eigenvectors_L = np.linalg.eigh(L)
+    
+    # Urutkan dari Eigenvalue terbesar (informasi fitur paling penting)
     idx = np.argsort(eigenvalues)[::-1]
+    eigenvalues = eigenvalues[idx]
     eigenvectors_L = eigenvectors_L[:, idx]
 
-    eigenfaces = np.dot(X_centered.T, eigenvectors_L).T
+    # [PERBAIKAN 4]: Menentukan jumlah K (Basis Utama) berdasarkan target Variance (misal: 95% informasi)
+    total_variance = np.sum(eigenvalues)
+    cumulative_variance = np.cumsum(eigenvalues) / total_variance
+    k_components = np.argmax(cumulative_variance >= variance_target) + 1
+    
+    # Transformasi kembali ke ukuran N (piksel) untuk mendapatkan Eigenfaces yang sebenarnya
+    eigenfaces = np.dot(X_centered.T, eigenvectors_L[:, :k_components]).T
 
+    # Normalisasi vektor basis menjadi unit vector (panjang = 1) di Euclidean Space
     for i in range(eigenfaces.shape[0]):
         norm = np.linalg.norm(eigenfaces[i])
         if norm > 0:
             eigenfaces[i] /= norm
 
-    eigenfaces = eigenfaces[:num_components]
-
+    # Proyeksikan data training ke Ruang Kolom Eigenfaces yang baru
     weights = np.dot(X_centered, eigenfaces.T)
 
     return mean_face, eigenfaces, weights
 
-
-def recognize_face(test_face, mean_face, eigenfaces, weights):
+def recognize_face(test_face, mean_face, eigenfaces, weights, threshold=15.0):
     # Mencocokkan wajah baru berdasarkan Jarak Euclidean di sub-ruang dimensi rendah.
     test_centered = test_face - mean_face
     
+    # Proyeksikan wajah uji ke ruang eigen
     test_weight = np.dot(test_centered, eigenfaces.T)
 
+    # Hitung Jarak Euclidean antara wajah uji dan semua wajah di database
     distances = np.linalg.norm(weights - test_weight, axis=1)
 
     best_match_idx = np.argmin(distances)
     min_distance = distances[best_match_idx]
+
+    # [PERBAIKAN 5]: Tolak kecocokan jika Jarak Euclidean lebih besar dari Threshold
+    if min_distance > threshold:
+        return -1, min_distance
 
     return best_match_idx, min_distance
 
@@ -97,37 +124,37 @@ if __name__ == "__main__":
         print(f"\nDataset berhasil dimuat!")
         print(f"Jumlah foto valid (M): {X_train.shape[0]} | Dimensi Vektor Piksel (N): {X_train.shape[1]}")
 
-        k_dimensions = 10
-        if k_dimensions > X_train.shape[0]:
-            k_dimensions = X_train.shape[0]
+        # Training dan secara otomatis mengambil sekian basis yang mewakili 95% varian wajah
+        mean_face, eigenfaces, train_weights = train_eigenfaces(X_train, variance_target=0.95)
+        print(f"Training Selesai. Ruang Vektor dipangkas menjadi {eigenfaces.shape[0]} Basis Utama yang esensial.")
 
-        mean_face, eigenfaces, train_weights = train_eigenfaces(
-            X_train, num_components=k_dimensions
-        )
-        print(f"Training Selesai. Ruang Vektor dipangkas menjadi {eigenfaces.shape[0]} Basis Utama.")
-
-        foto_uji = "sampleBen2.jpeg"
+        foto_uji = "sampleBer.jpeg"
 
         if os.path.exists(foto_uji):
             print(f"\nMemproses foto uji '{foto_uji}'...")
             
             cropped_test = detect_and_crop_face(foto_uji)
 
-            if cropped_test is not None:
+            if cropped_test is not None and cropped_test.size > 0:
                 img_test_resized = cv2.resize(cropped_test, (W, H))
-                test_face_vector = img_test_resized.flatten().astype(np.float64)
+                # Jangan lupa dibagi 255.0 sama seperti data training
+                test_face_vector = img_test_resized.flatten().astype(np.float64) / 255.0
 
+                # Parameter threshold mungkin perlu kamu sesuaikan (naikkan/turunkan) tergantung dataset
                 matched_idx, distance = recognize_face(
-                    test_face_vector, mean_face, eigenfaces, train_weights
+                    test_face_vector, mean_face, eigenfaces, train_weights, threshold=15.0
                 )
 
-                nama_file_tercocok = valid_filenames[matched_idx]
-
                 print("\n--- Hasil Analisis Foto ---")
-                print(f"Foto '{foto_uji}' paling dekat dengan foto '{nama_file_tercocok}' di dalam database.")
-                print(f"Jarak Euclidean terdekat: {distance:.2f}")
+                if matched_idx != -1:
+                    nama_file_tercocok = valid_filenames[matched_idx]
+                    print(f"✅ Foto '{foto_uji}' DIKENALI sebagai '{nama_file_tercocok}'.")
+                    print(f"Jarak Euclidean: {distance:.2f}")
+                else:
+                    print(f"❌ Wajah TIDAK DIKENALI (Unknown).")
+                    print(f"Wajah terdekat berjarak {distance:.2f}, melebihi batas toleransi yang diizinkan.")
             else:
-                print(f"Wajah tidak terdeteksi pada foto uji '{foto_uji}'. Coba foto yang lebih jelas.")
+                print(f"Wajah tidak terdeteksi secara proporsional pada foto uji '{foto_uji}'.")
         else:
             print(f"\nFile gambar uji '{foto_uji}' tidak ditemukan untuk simulasi uji.")
 
